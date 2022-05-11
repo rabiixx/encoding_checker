@@ -1,4 +1,5 @@
-[CmdletBinding()] Param (
+[CmdletBinding()] 
+Param (
     [Parameter(Mandatory = $True)] [string[]] $path,
     [Parameter(Mandatory = $False)] [string[]] $only,
     [Parameter(Mandatory = $False)] [string[]] $exclude,
@@ -8,10 +9,10 @@
 . .\"utils.ps1"
 
 $folder = Get-Item $path
-Write-Host "[+] Actual Folder: " $folder
-Write-Host "[+] Only: " $only
-Write-Host "[+] Exclude: " $exclude
-Write-Host "[+] Exclude Path: " $excludepath
+#Write-Host "[+] Actual Folder: " $folder
+#Write-Host "[+] Only: " $only
+#Write-Host "[+] Exclude: " $exclude
+#Write-Host "[+] Exclude Path: " $excludepath
 
 $is_set_only = $PSBoundParameters.ContainsKey('only')
 $is_set_exclude = $PSBoundParameters.ContainsKey('exclude')
@@ -63,13 +64,13 @@ if ( $is_set_only ) { $files = filter_only($files) }
 
 if ( $is_set_exclude ) { $files = filter_exclude($files) }
 
-Write-Host "`n`r[+] Filtered Files: "
-foreach ($file in $files) { $file.FullName }
+#Write-Host "`n`r[+] Filtered Files: "
+#foreach ($file in $files) { $file.FullName }
 
 # [+] Determine encoding
 foreach( $file in $files ) {
 
-    Write-Host "[+] Checking " $file.FullName
+    #Write-Host "[+] Checking " $file.FullName
 
     # Get File Byte Array
     [Byte[]]$bytes = Get-Content -Encoding Byte $file.Fullname
@@ -78,24 +79,31 @@ foreach( $file in $files ) {
     $hex_array = ($bytes|ForEach-Object ToString X2)
     $hex_array_size = $hex_array.Count
 
-    # Check encoding type
-    if ( Get-file-looks-utf8-with-BOM($file) ) {
-
-        $file_encoding = [Text.Encoding]::GetEncoding(65001).EncodingName + " with BOM"
-
-    } elseif ( $( is_utf8($hex_array, $hex_array_size, $msg, $faulty_bytes) ) -eq 0 ) {
-
-        $file_encoding = [Text.Encoding]::GetEncoding(65001).EncodingName + " without BOM"
-
+    if ( $hex_array_size -eq 0) {
+        Write-Host "`t" $file.Fullname "cannot be parsed because it is empty." -ForegroundColor Green
     } else {
+        
+        $msg = $null
+        $faulty_bytes = 0
 
-        Write-Host "`tMessage: " $msg
-        Write-Host "`tFaulty Bytes: " $faulty_bytes
-        $file_encoding = [Text.Encoding]::GetEncoding(20127).EncodingName + " (or unknown encoding)"
+        # Check encoding type
+        if ( Get-file-looks-utf8-with-BOM($file) ) {
 
+            $file_encoding = [Text.Encoding]::GetEncoding(65001).EncodingName + " with BOM"
+
+        } elseif ( IsUtf8 -hex_array_size $hex_array_size -hex_array $hex_array -msg ([ref]$msg) -faulty_bytes ([ref]$faulty_bytes) ) {
+
+            #Write-Host "`tMessage: " $msg
+            #Write-Host "`tFaulty Bytes: " $faulty_bytes
+            
+            $file_encoding = [Text.Encoding]::GetEncoding(65001).EncodingName + " without BOM"
+
+        } else {
+            $file_encoding = [Text.Encoding]::GetEncoding(20127).EncodingName + " (or unknown encoding)"
+        }
+
+        Write-Host "`t" $file.Fullname " ==> " $file_encoding -ForegroundColor Green
     }
-
-    Write-Host "`t" $file.Fullname " ==> " $file_encoding -ForegroundColor Green
 
 }
 
